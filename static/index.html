@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Battle for Rokugan - LAN Edition</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <!-- LOBBY OVERLAY -->
+  <div id="lobby-screen" class="screen">
+    <div class="lobby-card">
+      <div class="lobby-header-row">
+        <h1>Battle for Rokugan</h1>
+        <button id="lobby-tutorial-btn" class="tutorial-btn">📖 How to Play (Tutorial)</button>
+      </div>
+      <p class="subtitle">Local Area Network Multiplayer (2–5 Players)</p>
+
+      <div class="join-row">
+        <input type="text" id="player-name-input" placeholder="Enter Samurai Name..." maxlength="18" />
+        <button id="join-btn">Enter Lobby</button>
+      </div>
+
+      <div id="clan-selection" class="hidden">
+        <h3>Select Your Great Clan</h3>
+        <div id="clan-grid" class="clan-grid"></div>
+        <button id="ready-btn" class="ready-btn" disabled>Ready for War</button>
+      </div>
+
+      <div class="lobby-players">
+        <h3>Connected Warlords</h3>
+        <ul id="lobby-player-list"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN GAME SCREEN (FULL SCREEN VIEW) -->
+  <div id="game-screen" class="screen hidden">
+    <!-- TOP FLOATING BAR -->
+    <header class="top-bar">
+      <div class="top-left-controls">
+        <button id="toggle-left-btn" class="hud-toggle-btn active" title="Toggle Clan Standings">🏰 Clans</button>
+        <div class="round-info">
+          <span id="round-display">Round 1 / 5</span>
+          <span id="phase-display" class="badge">PLACEMENT</span>
+        </div>
+      </div>
+
+      <div id="turn-banner" class="turn-banner">Waiting for players...</div>
+
+      <div class="top-actions">
+        <button id="sound-btn" class="hud-toggle-btn" title="Toggle Sound Effects">🔊</button>
+        <button id="toggle-right-btn" class="hud-toggle-btn active" title="Toggle Chronicle Log">📜 Log</button>
+        <button id="fullscreen-btn" class="hud-toggle-btn" title="Toggle Fullscreen">⛶ Fullscreen</button>
+        <button id="game-tutorial-btn" class="tutorial-btn">📖 Rules</button>
+        <button id="next-round-btn" class="action-btn hidden">Proceed to Next Round</button>
+        <button id="reset-btn" class="danger-btn">Reset Game</button>
+      </div>
+    </header>
+
+    <div class="main-layout">
+      <!-- LEFT FLOATING HUD: SCOREBOARD & OBJECTIVES -->
+      <aside id="left-sidebar" class="hud-panel left-hud">
+        <div class="hud-header">
+          <h3>Great Clans</h3>
+          <button id="close-left-hud" class="hud-close">&times;</button>
+        </div>
+        <div id="scoreboard" class="scoreboard-container"></div>
+
+        <div class="secret-box">
+          <h4>Secret Objective</h4>
+          <div id="secret-objective-card">Hidden</div>
+        </div>
+
+        <div class="legend-box">
+          <h4>Map Guide</h4>
+          <p><span class="dot coastal-dot"></span> Coastal Province / Border</p>
+          <p><span class="dot capital-dot"></span> Clan Capital</p>
+          <p><span class="dot pulse-dot"></span> Green Pulse = Legal Token Target</p>
+        </div>
+      </aside>
+
+      <!-- CENTER: FULL SCREEN IMMERSIVE LANDSCAPE MAP -->
+      <main class="map-container">
+        <svg id="rokugan-map" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <!-- Smooth watercolor blur for natural organic territory color blending -->
+            <filter id="territory-blur" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="35" result="blur" />
+            </filter>
+            <!-- Drop shadow for province nodes & tokens -->
+            <filter id="node-shadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.8" />
+            </filter>
+          </defs>
+
+          <!-- Real Landscape Game Board Graphic -->
+          <image href="/static/map.jpg" x="0" y="0" width="1200" height="800" preserveAspectRatio="none" />
+          
+          <!-- Soft Organic Territory Color Watercolor Aura (NO BOXES) -->
+          <g id="map-territories"></g>
+          
+          <!-- Japanese Calligraphy Territory Banners (Pill-backed, NO overlap) -->
+          <g id="map-clan-banners"></g>
+
+          <!-- Borders, Province Nodes, and Placed Tokens -->
+          <g id="map-borders"></g>
+          <g id="map-provinces"></g>
+          <g id="map-tokens"></g>
+        </svg>
+
+        <!-- FLOATING PROVINCE TOOLTIP -->
+        <div id="province-tooltip" class="map-tooltip hidden"></div>
+
+        <!-- BORDER DIRECTION MODAL -->
+        <div id="border-modal" class="modal hidden">
+          <div class="modal-content">
+            <h4>Choose Attack Target across Border</h4>
+            <div id="border-target-buttons"></div>
+            <button id="cancel-border-btn" class="danger-btn">Cancel</button>
+          </div>
+        </div>
+
+        <!-- ON-SCREEN TOAST NOTIFICATION -->
+        <div id="toast-notification" class="toast hidden"></div>
+      </main>
+
+      <!-- RIGHT FLOATING HUD: ACTION LOG -->
+      <aside id="right-sidebar" class="hud-panel right-hud">
+        <div class="hud-header">
+          <h3>Chronicle Log</h3>
+          <button id="close-right-hud" class="hud-close">&times;</button>
+        </div>
+        <div id="action-log" class="action-log"></div>
+      </aside>
+    </div>
+
+    <!-- BOTTOM FLOATING ACTION DOCK: PLAYER HAND -->
+    <footer class="hand-tray">
+      <div class="hand-header">
+        <span id="hand-instruction">Select a token below to highlight legal deployment targets:</span>
+        <span id="pool-counter">Remaining Pool: 14</span>
+      </div>
+      <div id="hand-tokens" class="hand-tokens"></div>
+    </footer>
+  </div>
+
+  <!-- INTERACTIVE TUTORIAL MODAL -->
+  <div id="tutorial-modal" class="modal hidden">
+    <div class="tutorial-card">
+      <div class="tutorial-header">
+        <div class="tutorial-tabs">
+          <button class="tutorial-tab active" data-step="0">1. Overview</button>
+          <button class="tutorial-tab" data-step="1">2. Game Flow</button>
+          <button class="tutorial-tab" data-step="2">3. Token Rules</button>
+          <button class="tutorial-tab" data-step="3">4. How to Play</button>
+          <button class="tutorial-tab" data-step="4">5. Clans</button>
+        </div>
+        <button id="close-tutorial-btn" class="close-btn">&times;</button>
+      </div>
+
+      <div class="tutorial-body">
+        <!-- STEP 0: OVERVIEW -->
+        <div class="tutorial-step" id="tutorial-step-0">
+          <h2>Welcome to Battle for Rokugan</h2>
+          <p class="tutorial-lead">A fast-paced board game of territory conquest, secret orders, bluffing, and honor in feudal Japan's Emerald Empire.</p>
+          
+          <div class="tutorial-grid">
+            <div class="tutorial-box">
+              <h4>🎯 Goal of the Game</h4>
+              <p>Accumulate the most <strong>Honor (★)</strong> by the end of <strong>Round 5</strong>.</p>
+            </div>
+            <div class="tutorial-box">
+              <h4>⚔ How Honor is Earned</h4>
+              <ul class="tutorial-list">
+                <li><strong>Provinces:</strong> Each controlled province grants 1–3 Honor (★ on map).</li>
+                <li><strong>Territories:</strong> Controlling ALL provinces in a territory grants <strong>+3 Bonus Honor</strong>!</li>
+                <li><strong>Secret Objectives:</strong> Each Daimyō is dealt a secret mission (e.g. control 3 coastlines) worth <strong>+4 to +5 Honor</strong>.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 1: ROUND FLOW -->
+        <div class="tutorial-step hidden" id="tutorial-step-1">
+          <h2>The 3 Phases of Each Round</h2>
+          <p class="tutorial-lead">The game plays over exactly 5 rounds. Each round has three distinct phases:</p>
+
+          <div class="phases-timeline">
+            <div class="phase-item">
+              <span class="phase-number">1</span>
+              <h4>Upkeep Phase</h4>
+              <p>The First Player token rotates. Players draw tokens from their secret pool until they have <strong>6 combat tokens</strong> in hand.</p>
+            </div>
+            <div class="phase-item">
+              <span class="phase-number">2</span>
+              <h4>Placement Phase</h4>
+              <p>Taking turns clockwise, each player places <strong>1 token face-down</strong> on the map. This repeats for 5 turns until each player has placed 5 tokens (keeping 1 secret in hand).</p>
+            </div>
+            <div class="phase-item">
+              <span class="phase-number">3</span>
+              <h4>Resolution Phase</h4>
+              <p>All placed tokens are flipped face-up simultaneously! Raids burn lands, Diplomats secure peace, and armies clash for province control.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: COMBAT TOKENS -->
+        <div class="tutorial-step hidden" id="tutorial-step-2">
+          <h2>Combat Tokens & Placement Rules</h2>
+          <p class="tutorial-lead">Combat tokens have strict placement requirements:</p>
+
+          <div class="tokens-showcase">
+            <div class="token-desc-card">
+              <div class="token-pill army">ARM +1..+4</div>
+              <div>
+                <strong>Army:</strong> Must be placed on a <strong>land border</strong> (originating from your territory, or defending your border), or inside your own province for defense. Cannot be placed on coastal borders.
+              </div>
+            </div>
+            <div class="token-desc-card">
+              <div class="token-pill navy">NAV +1..+3</div>
+              <div>
+                <strong>Navy:</strong> Must be placed on <strong>coastal borders</strong> (cyan dashed lines) or coastal provinces directly from the sea.
+              </div>
+            </div>
+            <div class="token-desc-card">
+              <div class="token-pill shinobi">SHI +1..+3</div>
+              <div>
+                <strong>Shinobi:</strong> Stealth operatives placed directly in the <strong>center of any province</strong>. Cannot be placed on borders!
+              </div>
+            </div>
+            <div class="token-desc-card">
+              <div class="token-pill blessing">BLE +2</div>
+              <div>
+                <strong>Blessing:</strong> Must be placed inside a <strong>province you control</strong> (+3 strength for Phoenix).
+              </div>
+            </div>
+            <div class="token-desc-card">
+              <div class="token-pill raid">RAID 🔥</div>
+              <div>
+                <strong>Raid:</strong> Must be placed in the <strong>center of a province</strong>. Burns it to Scorched Earth (control lost, no tokens allowed).
+              </div>
+            </div>
+            <div class="token-desc-card">
+              <div class="token-pill diplomat">DIP 🕊</div>
+              <div>
+                <strong>Diplomat:</strong> Must be placed in a <strong>province you control</strong>. Brings permanent Peace (province can never be attacked again).
+              </div>
+            </div>
+            <div class="token-desc-card">
+              <div class="token-pill bluff">BLUFF ★</div>
+              <div>
+                <strong>Bluff:</strong> Can be placed on any unoccupied border or any valid province. Returns to your hand upon reveal!
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: HOW TO PLAY -->
+        <div class="tutorial-step hidden" id="tutorial-step-3">
+          <h2>How to Take Your Turn</h2>
+          <p class="tutorial-lead">Playing on the board is intuitive with built-in legal move highlighting:</p>
+
+          <div class="how-to-steps">
+            <div class="step-card">
+              <span class="step-badge">Step 1</span>
+              <h4>Select a Token</h4>
+              <p>Click any token in your bottom dock. All legal deployment targets on the map immediately pulse in bright green/gold.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-badge">Step 2</span>
+              <h4>Choose Target on Map</h4>
+              <p>Click a legal <strong>Province node</strong> or a <strong>Border hotspot</strong>. Illegal targets are automatically dimmed.</p>
+            </div>
+            <div class="step-card">
+              <span class="step-badge">Step 3</span>
+              <h4>Confirm Direction</h4>
+              <p>If placing on a border, a quick prompt asks which province you are attacking into.</p>
+            </div>
+          </div>
+
+          <div class="tutorial-tip">
+            💡 <strong>Pro Tip:</strong> Defender always wins combat ties! Use Blessings and Province innate defense (⚔) to hold your lands against invaders.
+          </div>
+        </div>
+
+        <!-- STEP 4: THE 7 CLANS -->
+        <div class="tutorial-step hidden" id="tutorial-step-4">
+          <h2>The 7 Great Clans & Special Powers</h2>
+          <p class="tutorial-lead">Each Clan has an ancestral capital and a unique rule-bending ability:</p>
+
+          <div class="clans-showcase">
+            <div class="clan-card-tut" style="border-left-color: #2b4c7e;">
+              <strong>🦀 Crab Clan</strong>
+              <p>+1 Defense in all controlled provinces. Masters of defense holding the Kaiu Wall against the Shadowlands.</p>
+            </div>
+            <div class="clan-card-tut" style="border-left-color: #6ec5e9;">
+              <strong>🪶 Crane Clan</strong>
+              <p>Gain +2 Bonus Honor whenever placing a Diplomat. Masters of court, peace, and coastal diplomacy.</p>
+            </div>
+            <div class="clan-card-tut" style="border-left-color: #2d6a4f;">
+              <strong>🐉 Dragon Clan</strong>
+              <p>+1 Strength to all tokens placed inside your own provinces. Fierce defenders of high mountain sanctuaries.</p>
+            </div>
+            <div class="clan-card-tut" style="border-left-color: #d4a373;">
+              <strong>🦁 Lion Clan</strong>
+              <p>+1 Attack Strength with all Army tokens. Unstoppable military powerhouse of the central empire.</p>
+            </div>
+            <div class="clan-card-tut" style="border-left-color: #e76f51;">
+              <strong>🦅 Phoenix Clan</strong>
+              <p>Blessing tokens add +3 Strength instead of +2. Shugenja elementalists with spiritual warding.</p>
+            </div>
+            <div class="clan-card-tut" style="border-left-color: #9b2226;">
+              <strong>🦂 Scorpion Clan</strong>
+              <p>+1 Attack Strength with all Shinobi tokens. Masters of shadows, deception, and sudden assassinations.</p>
+            </div>
+            <div class="clan-card-tut" style="border-left-color: #7209b7;">
+              <strong>🐎 Unicorn Clan</strong>
+              <p>+1 Attack Strength in all non-capital provinces. Rapid cavalry raiders conquering the open borders.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOTER CONTROLS -->
+      <div class="tutorial-footer">
+        <button id="tut-prev-btn" class="secondary-btn" disabled>&larr; Previous</button>
+        <div class="tut-dots">
+          <span class="tut-dot active" data-step="0"></span>
+          <span class="tut-dot" data-step="1"></span>
+          <span class="tut-dot" data-step="2"></span>
+          <span class="tut-dot" data-step="3"></span>
+          <span class="tut-dot" data-step="4"></span>
+        </div>
+        <button id="tut-next-btn" class="action-btn">Next &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
